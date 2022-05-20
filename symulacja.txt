@@ -1,0 +1,33 @@
+tworzenie nowej paczki zawierającej naszą symulację
+
+mkdir -p sim_ws/src
+cd sim_ws
+catkin_make
+source devel/setup.bash
+
+cd sim_ws/src
+
+tworzymy 2 foldery motion_plan i rm_robot przy pomocy następujących poleceń
+
+catkin_make_pkg motion_plan
+catkin_make_pkg robot_sim
+
+do tych 2 folderów należy skopowiać odpowiednio foldery poleceniem cp:
+scripts do motion_plan
+launch world models do robot_sim,
+a następnie należy skopiować całą zawartość z cmake z gita do nowoutworzonego cmake
+nie należy kopiować cmake poleceniem cp, może powstać błąd o istnieniu wielu takich paczek
+
+uruchahmianie symulacji należy w każdym nowo otwartym oknie konsoli ustawić:
+source ~/.../sim_ws/devel/setup.bash
+
+należy także uruchomić roscore by umożliwić pobieranie danych z symulajci/robota poleceniem:
+roscore
+
+uruchamianie symulacji i zrespienie robota:
+
+roslaunch robot_sim robot_world.launch
+roslaunch spawn_rm3_robot.launch
+
+uruchamanie skrypu
+rosrun motion_plan control_robot.py
