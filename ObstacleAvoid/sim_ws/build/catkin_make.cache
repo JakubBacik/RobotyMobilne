@@ -1,0 +1,2 @@
+
+-DCATKIN_DEVEL_PREFIX=/home/jakub/RM_ws/sim_ws/devel -DCMAKE_INSTALL_PREFIX=/home/jakub/RM_ws/sim_ws/install -G Unix Makefiles

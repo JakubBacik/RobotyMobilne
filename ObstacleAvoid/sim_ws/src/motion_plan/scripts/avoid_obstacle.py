@@ -1,33 +1,88 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
+from re import A
+import rospy 
+from sensor_msgs.msg import LaserScan 
+from nav_msgs.msg import Odometry
+from geometry_msgs.msg import Twist
 
-from Avoider import Avoider
+class Circling(): 
+   
+    def __init__(self): 
+        global circle
+        circle = Twist()  
+        self.pub = rospy.Publisher("/cmd_vel", Twist, queue_size=1) 
+        self.sub = rospy.Subscriber("/spur/laser/scan", LaserScan, self.callback)
+        self.sub = rospy.Subscriber("/odom", Odometry, self.odometry) 
 
-import rospy
-from geometry_msgs.msg import Twist #ros msg that deals with moving the robot
-from sensor_msgs.msg import LaserScan #ros msg that gets the laser scans
+    def callback(self, msg): 
+        print('-------RECEIVING LIDAR SENSOR DATA-------')
+        print('Front:  {}'.format(msg.ranges[748])) 
+        print('Left: {}'.format(msg.ranges[768]))
+        print('Right: {}'.format(msg.ranges[728]))
+        print('Back: {}'.format(msg.ranges[256])) 
+        regions = {
+            'right':  min(min(msg.ranges[500:580]), 10),
+            'front':  min(min(msg.ranges[581:956]), 10),
+            'left':   min(min(min(msg.ranges[0:12]), min(msg.ranges[955:1023])), 10),
+        }
+        self.take_action(regions)
 
-def main():
 
-    vel = Twist()
-    # Instanciate our avoider object
-    avoider = Avoider(vel)
-    # Initialize our node
-    rospy.init_node("Laser_Obs_Avoid_node")
-    # Subscribe to the "/scan" topic in order to read laser scans data from it
-    rospy.Subscriber("/scan", LaserScan, avoider.indentify_regions)
-    #create our publisher that'll publish to the "/cmd_vel" topic
-    pub = rospy.Publisher("/cmd_vel", Twist, queue_size = 1)
-    #ros will try to run this code 10 times/second
-    rate = rospy.Rate(10) #10Hz
-    
-    #keep running while the ros-master isn't shutdown
-    while not rospy.is_shutdown():
-        vel = avoider.avoid()
-        pub.publish(vel)
-        rate.sleep()
+    def odometry(self, msg): 
+        print()#msg.pose.pose)
 
-if __name__ == "__main__":
-    try:
-        main()
-    except rospy.ROSInterruptException:
-        pass
+    def take_action(self,regions):
+        threshold_dist = 0.9
+        linear_speed = -1.2
+        angular_speed = -0.2
+        
+        linear_x = 0
+        angular_z = 0
+        
+        state_description = ''
+        
+        if regions['front'] > threshold_dist and regions['left'] > threshold_dist and regions['right'] > threshold_dist:
+            state_description = 'No obstacle'
+            linear_x = linear_speed
+            angular_z = 0
+        elif regions['front'] < threshold_dist and regions['left'] < threshold_dist and regions['right'] < threshold_dist:
+            state_description = 'Front and left and right'
+            linear_x = -linear_speed
+            angular_z = angular_speed 
+        elif regions['front'] < threshold_dist and regions['left'] > threshold_dist and regions['right'] > threshold_dist:
+            state_description = 'Front'
+            linear_x = 0
+            angular_z = angular_speed
+        elif regions['front'] > threshold_dist and regions['left'] > threshold_dist and regions['right'] < threshold_dist:
+            state_description = 'Right'
+            linear_x = 0
+            angular_z = -angular_speed
+        elif regions['front'] > threshold_dist and regions['left'] < threshold_dist and regions['right'] > threshold_dist:
+            state_description = 'Left'
+            linear_x = 0
+            angular_z = angular_speed
+        elif regions['front'] < threshold_dist and regions['left'] > threshold_dist and regions['right'] < threshold_dist:
+            state_description = 'Front and right'
+            linear_x = 0
+            angular_z = -angular_speed
+        elif regions['front'] < threshold_dist and regions['left'] < threshold_dist and regions['right'] > threshold_dist:
+            state_description = 'Front and left'
+            linear_x = 0
+            angular_z = angular_speed
+        elif regions['front'] > threshold_dist and regions['left'] < threshold_dist and regions['right'] < threshold_dist:
+            state_description = 'Left and right'
+            linear_x = linear_speed
+            angular_z = 0
+        else:
+            state_description = 'unknown case'
+            rospy.loginfo(regions)
+
+        rospy.loginfo(state_description)
+        circle.linear.x = linear_x
+        circle.angular.z = angular_z
+        self.pub.publish(circle)
+
+if __name__ == '__main__':
+    rospy.init_node('obstacle_avoidance_node') 
+    Circling() 
+    rospy.spin()   
